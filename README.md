@@ -70,6 +70,7 @@ keys would be impacted, like a cache system.
   even if leader is actually dead, making it unavailable as well as leading to longer recovery times as new leader is selection is also
   delayed. If its to short, we may be having too frequent failovers happening even if leader is not dead, thus stressing the system unnecessarily.
 
+### Anamolies due to replication lag
 #### Read after write
 ![image](./images/read-after-write.png)
 
@@ -101,6 +102,48 @@ data, and so user doesn't see the data.
 Monotonic reads ensures that a user always sees the newer data, not older data. One way of achieving this is by sending
 all requests from a user to same node, like by routing requests based on user id hash. Only when node fails that requests
 are directed to other nodes.
+
+### Consistent Prefix Reads
+Another anamoly related to replication lag is violation of causality. Suppose order of data writes is critical, like in
+a question-answer session.
+Leader receives question and then answer. Due to replication lag, it may happen that observer reads answer before question.
+This problem is more prevalent in distributed databases with multiple partitions, and as partitions operate independently,
+it's difficult to ensure global write order. One way of ensuring write order can be to write causally related writes
+to same partition.
+
+### Multi-leader replication
+TODO
+
+### Leaderless replication
+Some distributed databases don't follow leader-follower architecture. Instead, clients can send write requests to any replica.
+In some versions of this architecture, clients send write requests to a coordinator node which then sends it to one of
+the replica.
+
+![image](./images/leaderless-replication-stale-solution.png)
+
+
+In leaderless architecture, when replicating a write if one of the replica is down, and configuration is fine with it,
+when dead node comes back and starts serving read requests it may return stale data as it still doesn't have updated writes.
+To avoid this, read request is send to multiple replicas and then latest one is selected.
+
+#### Data consistency approaches
+In leader based architectures, when a dead node comes back it fetches latest data form leader. In leaderless systems there
+is no leader as such. So several other approaches are used to ensure data is replicated on all nodes:
+- Read-repair: When it's detected during processing a read request that one of the replica has stale data, 
+  latest data is written back to replica. This approach works quite well for data that is frequently read.
+- Anti-entropy process: In this approach a background process continuously works to detect differences in data between replicas.
+  and copies missing data from one replica to another.
+
+#### Quorums
+To ensure that we have multiple replicas of latest data, a write is successful only when it has been successfully written
+to more than one node. It's called _**write quorum**_, say w. So a write request is successful only when w nodes out of n has
+successful writes. Similarly **_read quorum_**, say r, decides how many nodes must read successfully for a read request to be successful.
+If fewer than the required w or r nodes are available, writes or reads return an error.
+To ensure that a read gets latest data,we must have w+r > n. 
+These numbers are configurable in Dynamo based databases, like Cassandra. Generally n is some odd number, and w,r are set to (n+1)/2 rounded up.
+
+#### Limitations of Quorum Consistency
+TODO
 
 
 # SQL
