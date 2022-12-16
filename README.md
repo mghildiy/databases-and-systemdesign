@@ -145,6 +145,8 @@ These numbers are configurable in Dynamo based databases, like Cassandra. Genera
 #### Limitations of Quorum Consistency
 TODO
 
+#### Monitoring staleness
+182
 
 # SQL
 Order of execution in a SQL query:
